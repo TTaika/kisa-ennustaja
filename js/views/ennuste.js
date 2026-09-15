@@ -61,16 +61,10 @@ function closingTimeBreaches(state, taskStats) {
 }
 
 function toolbarHtml() {
-  const card = document.createElement("details");
-  card.className = "card print-hide";
-  bindCollapse(card, "ennuste-toolbar");
-  card.innerHTML = `
-    <summary><h2>Ennuste</h2></summary>
-    <div class="toolbar" style="margin-bottom:0;">
-      <button onclick="window.print()">Tulosta PDF</button>
-    </div>
-  `;
-  return card;
+  const wrap = document.createElement("div");
+  wrap.className = "toolbar print-hide";
+  wrap.innerHTML = `<button onclick="window.print()">Tulosta PDF</button>`;
+  return wrap;
 }
 
 function withNames(state, r) {

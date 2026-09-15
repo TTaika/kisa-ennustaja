@@ -2,16 +2,14 @@ import { getState, update, genId } from "../state.js";
 import { rerender } from "../router.js";
 import { escapeAttr, escapeText, minsToHHMM, hhmmToMins } from "../util/format.js";
 import { parseCoords, formatCoords } from "../model/route.js";
-import { bindCollapse } from "../util/collapseMemory.js";
 import { openModal } from "../util/modal.js";
+import { initSearchPicker } from "../util/searchPicker.js";
 
 export function render(root) {
   const state = getState();
-  const card = document.createElement("details");
+  const card = document.createElement("section");
   card.className = "card";
-  bindCollapse(card, "rastit-main");
   card.innerHTML = `
-    <summary><h2>Rastit</h2></summary>
     <div class="toolbar">
       <button id="btn-add-cp">+ Lisää rasti</button>
     </div>
@@ -84,20 +82,13 @@ function openCpModal(existingCp) {
   const seed = isEdit ? existingCp : (state.defaults?.controlPoint || {});
   const seedName = isEdit ? existingCp.name : "Uusi rasti";
   const seedCoords = isEdit ? formatCoords({ lat: existingCp.lat, lng: existingCp.lng }) : "";
-  const seedTaskIds = isEdit ? (existingCp.taskIds || []) : [];
+  const draftTaskIds = isEdit ? [...(existingCp.taskIds || [])] : [];
   const seedClosing = isEdit ? existingCp.closingTimeMin : (seed.closingTimeMin ?? null);
   const seedSleeping = isEdit ? existingCp.isSleepingCp : (seed.isSleepingCp ?? false);
 
   openModal({
     title: isEdit ? `Muokkaa rastia: ${existingCp.name}` : "Uusi rasti",
     render(body, close) {
-      const taskPicks = state.tasks.map(task => `
-        <label class="task-pick">
-          <input type="checkbox" data-task-id="${escapeAttr(task.id)}" ${seedTaskIds.includes(task.id) ? "checked" : ""}>
-          ${escapeText(task.name)}
-        </label>
-      `).join("") || `<span class="text-muted">Ei tehtäviä määritelty</span>`;
-
       body.innerHTML = `
         <form id="cp-form">
           <div class="row">
@@ -113,9 +104,9 @@ function openCpModal(existingCp) {
             </label>
           </div>
           <div class="row">
-            <label>Tehtävät
-              <div class="task-picks">${taskPicks}</div>
-            </label>
+            <label>Tehtävät</label>
+            <div class="chip-row" id="cp-task-chips"></div>
+            <div class="add-task-picker"></div>
           </div>
           <div class="modal-actions">
             <button type="button" class="secondary" data-cancel>Peruuta</button>
@@ -127,10 +118,36 @@ function openCpModal(existingCp) {
       const field = (n) => form.querySelector(`[name="${n}"]`);
       form.querySelector("[data-cancel]").addEventListener("click", close);
 
+      const chipRow = body.querySelector("#cp-task-chips");
+      function renderChips() {
+        chipRow.innerHTML = draftTaskIds.map(id => {
+          const task = state.tasks.find(t => t.id === id);
+          if (!task) return "";
+          return `<span class="chip" data-task-id="${escapeAttr(id)}">${escapeText(task.name)}<button type="button" class="chip-remove" aria-label="Poista">✕</button></span>`;
+        }).join("");
+        chipRow.querySelectorAll(".chip-remove").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const id = btn.closest(".chip").dataset.taskId;
+            const idx = draftTaskIds.indexOf(id);
+            if (idx >= 0) draftTaskIds.splice(idx, 1);
+            renderChips();
+          });
+        });
+      }
+      renderChips();
+
+      initSearchPicker(body.querySelector(".add-task-picker"), {
+        items: () => state.tasks.filter(t => !draftTaskIds.includes(t.id)).map(t => ({ id: t.id, label: t.name })),
+        placeholder: "Hae tehtävää lisätäksesi...",
+        onPick(item) {
+          draftTaskIds.push(item.id);
+          renderChips();
+        }
+      });
+
       form.addEventListener("submit", (e) => {
         e.preventDefault();
         const parsed = parseCoords(field("coords").value);
-        const checkedTaskIds = [...form.querySelectorAll(".task-pick input[type=checkbox]:checked")].map(el => el.dataset.taskId);
         const closingVal = field("closing").value;
         const values = {
           name: field("name").value.trim() || "Nimetön rasti",
@@ -138,7 +155,7 @@ function openCpModal(existingCp) {
           lng: parsed ? parsed.lng : null,
           closingTimeMin: closingVal === "" ? null : hhmmToMins(closingVal),
           isSleepingCp: field("isSleepingCp").checked,
-          taskIds: checkedTaskIds
+          taskIds: [...draftTaskIds]
         };
         update(st => {
           if (isEdit) Object.assign(findCpIn(st, existingCp.id), values);

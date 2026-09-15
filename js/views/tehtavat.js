@@ -1,16 +1,13 @@
 import { getState, update, genId } from "../state.js";
 import { rerender } from "../router.js";
 import { escapeAttr, escapeText } from "../util/format.js";
-import { bindCollapse } from "../util/collapseMemory.js";
 import { openModal } from "../util/modal.js";
 
 export function render(root) {
   const state = getState();
-  const card = document.createElement("details");
+  const card = document.createElement("section");
   card.className = "card";
-  bindCollapse(card, "tehtavat-main");
   card.innerHTML = `
-    <summary><h2>Tehtävät</h2></summary>
     <div class="toolbar">
       <button id="btn-add-task">+ Lisää tehtävä</button>
     </div>

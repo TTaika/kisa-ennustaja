@@ -4,20 +4,15 @@ import { findCp, findTask, coursesUsedBy } from "../util/lookup.js";
 import { escapeAttr, escapeText } from "../util/format.js";
 import { bindCollapse } from "../util/collapseMemory.js";
 import { openModal } from "../util/modal.js";
+import { initSearchPicker } from "../util/searchPicker.js";
 
 export function render(root) {
   const state = getState();
-  const intro = document.createElement("details");
-  intro.className = "card";
-  bindCollapse(intro, "radat-intro");
-  intro.innerHTML = `
-    <summary><h2>Radat</h2></summary>
-    <div class="toolbar">
-      <button id="btn-add-course">+ Lisää rata</button>
-    </div>
-  `;
-  root.appendChild(intro);
-  intro.querySelector("#btn-add-course").addEventListener("click", () => openCourseModal(null));
+  const toolbar = document.createElement("div");
+  toolbar.className = "toolbar";
+  toolbar.innerHTML = `<button id="btn-add-course">+ Lisää rata</button>`;
+  root.appendChild(toolbar);
+  toolbar.querySelector("#btn-add-course").addEventListener("click", () => openCourseModal(null));
 
   for (const course of state.courses) root.appendChild(courseCard(course));
 }
@@ -25,7 +20,6 @@ export function render(root) {
 function courseCard(course) {
   const state = getState();
   const usedBy = coursesUsedBy(state, course.id);
-  const cpOptions = state.controlPoints.map(cp => `<option value="${escapeAttr(cp.id)}">${escapeText(cp.name)}</option>`).join("");
   const wrap = document.createElement("details");
   wrap.className = "card course-card";
   bindCollapse(wrap, "radat-course-" + course.id);
@@ -48,8 +42,7 @@ function courseCard(course) {
       ${course.stops.map((stop, i) => stopRowHtml(course, stop, i)).join("")}
     </div>
     <div class="toolbar" style="margin-top:0.5rem; margin-bottom:0;">
-      <select class="add-stop-cp">${cpOptions}</select>
-      <button class="secondary btn-add-stop">+ Lisää rasti</button>
+      <div class="add-stop-picker"></div>
     </div>
   `;
 
@@ -80,18 +73,20 @@ function courseCard(course) {
     });
     rerender();
   });
-  wrap.querySelector(".btn-add-stop").addEventListener("click", () => {
-    const cpId = wrap.querySelector(".add-stop-cp").value;
-    if (!cpId) return;
-    update(st => {
-      const cp = st.controlPoints.find(c => c.id === cpId);
-      findCourseIn(st, course.id).stops.push({
-        cpId, distanceM: 0,
-        taskIds: [...(cp?.taskIds || [])],
-        parallel: false
+  initSearchPicker(wrap.querySelector(".add-stop-picker"), {
+    items: () => getState().controlPoints.map(cp => ({ id: cp.id, label: cp.name })),
+    placeholder: "Hae rastia lisätäksesi...",
+    onPick(item) {
+      update(st => {
+        const cp = st.controlPoints.find(c => c.id === item.id);
+        findCourseIn(st, course.id).stops.push({
+          cpId: item.id, distanceM: 0,
+          taskIds: [...(cp?.taskIds || [])],
+          parallel: false
+        });
       });
-    });
-    rerender();
+      rerender();
+    }
   });
 
   const stopRows = wrap.querySelectorAll(".stop-row");

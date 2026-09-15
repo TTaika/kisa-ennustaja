@@ -4,20 +4,15 @@ import { findCourse } from "../util/lookup.js";
 import { escapeAttr, escapeText, minsToHHMM, hhmmToMins } from "../util/format.js";
 import { bindCollapse } from "../util/collapseMemory.js";
 import { openModal } from "../util/modal.js";
+import { initDropdownMenu } from "../util/dropdownMenu.js";
 
 export function render(root) {
   const state = getState();
-  const intro = document.createElement("details");
-  intro.className = "card";
-  bindCollapse(intro, "sarjat-intro");
-  intro.innerHTML = `
-    <summary><h2>Sarjat</h2></summary>
-    <div class="toolbar">
-      <button id="btn-add-cat">+ Lisää sarja</button>
-    </div>
-  `;
-  root.appendChild(intro);
-  intro.querySelector("#btn-add-cat").addEventListener("click", () => openCatModal(null));
+  const toolbar = document.createElement("div");
+  toolbar.className = "toolbar";
+  toolbar.innerHTML = `<button id="btn-add-cat">+ Lisää sarja</button>`;
+  root.appendChild(toolbar);
+  toolbar.querySelector("#btn-add-cat").addEventListener("click", () => openCatModal(null));
 
   for (const cat of state.categories) root.appendChild(catCard(cat));
 }
@@ -34,9 +29,12 @@ function catCard(cat) {
       <div class="cat-header">
         <span class="cat-color-swatch" style="display:inline-block;width:1.1em;height:1.1em;border-radius:4px;background:${escapeAttr(cat.color)};border:1px solid var(--border);flex:0 0 auto;"></span>
         <span class="cat-name-text">${escapeText(cat.name)}</span>
-        <div class="cat-actions">
-          <button class="secondary btn-copy">Kopioi</button>
-          <button class="icon-btn btn-del" title="Poista">✕</button>
+        <div class="cat-actions dropdown-menu-wrap">
+          <button type="button" class="icon-btn dropdown-menu-trigger" aria-haspopup="true" aria-expanded="false" title="Lisää" aria-label="Lisää">⋮</button>
+          <div class="dropdown-menu">
+            <button type="button" class="btn-copy">Kopioi</button>
+            <button type="button" class="btn-del danger-item">Poista</button>
+          </div>
         </div>
       </div>
     </summary>
@@ -59,6 +57,8 @@ function catCard(cat) {
     </div>
     ${course ? `<p class="text-muted" style="font-size:0.8rem; margin: 0.75rem 0 0;">Radan pohja-häröilyaika: ${course.haroilyBaselineMin} min · ${course.stops.length} pysähdystä</p>` : ""}
   `;
+
+  initDropdownMenu(wrap.querySelector(".dropdown-menu-trigger"), wrap.querySelector(".dropdown-menu"));
 
   wrap.querySelector(".btn-edit-cat").addEventListener("click", () => {
     openCatModal(findCatIn(getState(), cat.id));

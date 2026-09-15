@@ -5,18 +5,15 @@
 // toast-only until then.
 import { getState } from "../state.js";
 import { escapeText, escapeAttr } from "../util/format.js";
-import { bindCollapse } from "../util/collapseMemory.js";
 
 const VB_W = 760, VB_H = 500, PAD = 50;
 
 export function render(root) {
   const state = getState();
-  const card = document.createElement("details");
+  const card = document.createElement("section");
   card.className = "card";
-  bindCollapse(card, "kartta-main");
   const courseOptions = state.courses.map(c => `<option value="${escapeAttr(c.id)}">${escapeText(c.name)}</option>`).join("");
   card.innerHTML = `
-    <summary><h2>Kartta</h2></summary>
     <div class="toolbar">
       <button class="secondary" data-demo-action="Kartan lataus (PDF/kuva) ja kalibrointi kytketään taustaan seuraavassa vaiheessa.">Lataa kartta…</button>
       <button class="secondary" data-demo-action="Kalibrointi kytketään taustaan seuraavassa vaiheessa.">Kalibroi pisteet</button>
