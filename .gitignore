@@ -1,0 +1,7 @@
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
+# Race map sheets run to tens of megabytes; the Kartta tab keeps them in the
+# browser's IndexedDB, not in the repo.
+*.pdf

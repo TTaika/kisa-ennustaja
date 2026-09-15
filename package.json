@@ -1,0 +1,10 @@
+{
+  "name": "kisa-ennustaja",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "serve": "py -3.13 -m http.server 8000",
+    "test": "node --test tests/*.test.js"
+  }
+}
