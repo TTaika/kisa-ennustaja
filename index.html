@@ -6,15 +6,23 @@
   <title>Kisa Ennustaja</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/theme.css">
   <link rel="stylesheet" href="css/layout.css">
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script>
+    try {
+      if (localStorage.getItem("theme") === "dark") document.documentElement.setAttribute("data-theme", "dark");
+    } catch (e) {}
+  </script>
 </head>
 <body>
   <header class="topbar">
     <h1 class="brand">Kisa Ennustaja</h1>
     <div class="nav-menu-wrap">
+      <button id="theme-toggle" class="secondary hamburger-btn" type="button" aria-label="Vaihda tumma teema">
+        <span class="theme-icon" aria-hidden="true">☾</span>
+      </button>
       <button id="nav-toggle" class="secondary hamburger-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="nav-dropdown" aria-label="Avaa valikko">
         <span class="hamburger-icon" aria-hidden="true">☰</span>
       </button>

@@ -5,14 +5,21 @@ import { escapeAttr, escapeText } from "../util/format.js";
 import { bindCollapse } from "../util/collapseMemory.js";
 import { openModal } from "../util/modal.js";
 import { initSearchPicker } from "../util/searchPicker.js";
+import { fetchFootDistanceM } from "../model/route.js";
+import { areasToValhalla } from "../model/area.js";
+import { showToast } from "../util/demo.js";
 
 export function render(root) {
   const state = getState();
   const toolbar = document.createElement("div");
   toolbar.className = "toolbar";
-  toolbar.innerHTML = `<button id="btn-add-course">+ Lisää rata</button>`;
+  toolbar.innerHTML = `
+    <button id="btn-add-course">+ Lisää rata</button>
+    <button class="secondary" id="btn-calc-all-distances">Laske etäisyydet</button>
+  `;
   root.appendChild(toolbar);
   toolbar.querySelector("#btn-add-course").addEventListener("click", () => openCourseModal(null));
+  toolbar.querySelector("#btn-calc-all-distances").addEventListener("click", (e) => calcAllDistances(e.currentTarget));
 
   for (const course of state.courses) root.appendChild(courseCard(course));
 }
@@ -116,8 +123,10 @@ function stopRowHtml(course, stop, index) {
       <div class="stop-index">${index + 1}</div>
       <div class="stop-main">
         <div class="stop-top">
-          <span class="stop-cp-name">${escapeText(cp?.name ?? "?")}</span>
-          ${overnightBadge}
+          <span class="stop-name-group" title="${escapeAttr(cp?.name ?? "?")}">
+            <span class="stop-cp-name">${escapeText(cp?.name ?? "?")}</span>
+            ${overnightBadge}
+          </span>
           <span class="stop-distance"><input class="distance" type="number" min="0" step="10" value="${stop.distanceM}"> m</span>
           <label class="stop-parallel"><input class="parallel switch" type="checkbox" ${stop.parallel ? "checked" : ""}> Rinnakkain</label>
           <span class="stop-actions">
@@ -133,6 +142,86 @@ function stopRowHtml(course, stop, index) {
 }
 
 function findCourseIn(st, id) { return st.courses.find(c => c.id === id); }
+
+// Fetches the real walking distance for every leg of every course, in the
+// stops' EXISTING order — no reordering, no optimization. One request per
+// leg, sent one at a time (not in parallel) to stay a reasonable citizen of
+// the public Valhalla server. Legs that fail (no network, missing
+// coordinates, routing error) are left with whatever distance they already
+// had, and are counted separately rather than aborting the whole run.
+//
+// Each stop remembers a fingerprint of the leg it was last routed for (the
+// two endpoint control points' identity and coordinates, plus every enabled
+// forbidden area) in `routeFetchKey`. A leg whose fingerprint still matches
+// is skipped — nothing about it could have changed the route — so re-running
+// this after touching one course doesn't re-fetch every other course too.
+// Reordering, re-pointing, or moving a stop changes its neighbour and so its
+// fingerprint, which is exactly what should force a re-fetch.
+function legFingerprint(prevCp, cp, forbiddenAreas) {
+  const areas = (forbiddenAreas || [])
+    .filter(a => a.enabled !== false)
+    .map(a => `${a.id}:${(a.ring || []).map(p => `${p.lat},${p.lng}`).join(";")}`)
+    .sort()
+    .join("|");
+  return JSON.stringify([prevCp.id, prevCp.lat, prevCp.lng, cp.id, cp.lat, cp.lng, areas]);
+}
+
+async function calcAllDistances(btn) {
+  const state = getState();
+  const legs = [];
+  for (const course of state.courses) {
+    for (let i = 1; i < course.stops.length; i++) {
+      legs.push({ courseId: course.id, stopIndex: i });
+    }
+  }
+  if (!legs.length) { showToast("Ei laskettavia välejä."); return; }
+
+  // Figure out up front how many legs would actually need a network round
+  // trip, so the confirmation (and the wait) reflects reality rather than
+  // always warning about every leg in the file.
+  const pending = legs.filter(({ courseId, stopIndex }) => {
+    const course = findCourseIn(state, courseId);
+    const stop = course.stops[stopIndex];
+    const prevCp = findCp(state, course.stops[stopIndex - 1].cpId);
+    const cp = findCp(state, stop.cpId);
+    if (!prevCp || !cp || prevCp.lat == null || cp.lat == null) return false;
+    return stop.routeFetchKey !== legFingerprint(prevCp, cp, state.forbiddenAreas);
+  });
+  if (!pending.length) { showToast("Kaikki etäisyydet ovat jo ajan tasalla."); return; }
+  if (!confirm(`Haetaanko todellinen kävelyetäisyys ${pending.length} muuttuneelle välille reittipalvelusta? (${legs.length - pending.length} on jo ajan tasalla.) Rastien järjestystä ei muuteta.`)) return;
+
+  btn.disabled = true;
+  let ok = 0, failed = 0, skipped = 0, cached = 0;
+  for (const { courseId, stopIndex } of legs) {
+    const st0 = getState();
+    const course = findCourseIn(st0, courseId);
+    if (!course) continue;
+    const stop = course.stops[stopIndex];
+    const prevCp = findCp(st0, course.stops[stopIndex - 1].cpId);
+    const cp = findCp(st0, stop.cpId);
+    if (!prevCp || !cp || prevCp.lat == null || cp.lat == null) { skipped++; continue; }
+    const key = legFingerprint(prevCp, cp, st0.forbiddenAreas);
+    if (stop.routeFetchKey === key) { cached++; continue; }
+    try {
+      const distanceM = await fetchFootDistanceM(prevCp, cp, { excludePolygons: areasToValhalla(st0.forbiddenAreas) });
+      update(s => {
+        const st = findCourseIn(s, courseId).stops[stopIndex];
+        st.distanceM = Math.round(distanceM);
+        st.routeFetchKey = key;
+      });
+      ok++;
+    } catch {
+      failed++;
+    }
+  }
+  btn.disabled = false;
+  rerender();
+  const parts = [`${ok} väliä päivitetty`];
+  if (cached) parts.push(`${cached} ennallaan`);
+  if (failed) parts.push(`${failed} epäonnistui`);
+  if (skipped) parts.push(`${skipped} ohitettu (sijainti puuttuu)`);
+  showToast(parts.join(", ") + ".");
+}
 
 function wireStopRow(row, courseId, stopIndex) {
   const distanceI = row.querySelector(".distance");

@@ -56,6 +56,7 @@ const DEFAULT_MAP = {
   layers: {
     showControlPoints: true,
     showRoutes: true,
+    showAllCourses: false,
     showLabels: true,
     showDistances: false,
     showForbidden: true,

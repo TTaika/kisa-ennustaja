@@ -1,37 +1,113 @@
 :root {
-  --bg: #0f1216;
-  --bg-elev: #171b21;
-  --bg-elev-2: #1e232b;
-  --bg-input: #20252d;
-  --fg: #eef1f6;
-  --fg-muted: #96a1b0;
-  --fg-subtle: #6b7686;
-  --border: #2a3139;
-  --border-strong: #38414c;
-  --accent: #4f8cff;
-  --accent-hover: #6ba0ff;
-  --accent-active: #3d74e6;
-  --accent-fg: #ffffff;
-  --accent-soft: rgba(79, 140, 255, 0.14);
-  --danger: #ff6b6b;
-  --danger-soft: rgba(255, 107, 107, 0.14);
-  --warn: #ffb86b;
-  --warn-soft: rgba(255, 184, 107, 0.14);
-  --ok: #6bd28a;
-  --ok-soft: rgba(107, 210, 138, 0.14);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5);
-  --radius-sm: 5px;
-  --radius-md: 9px;
-  --radius-lg: 14px;
-  --font: "Inter", -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
+  /* Map paper — page and surfaces */
+  --bg: #eef0e2;
+  --bg-elev: #f7f8ee;
+  --bg-elev-2: #fcfcf5;
+  --bg-input: #e6e8d7;
+
+  /* Ink */
+  --fg: #201d15;
+  --fg-muted: #6b6350;
+  --fg-subtle: #948c76;
+
+  /* Contour lines — topographic brown, used for rules and hairline borders */
+  --border: #d8d4bd;
+  --border-strong: #b9b190;
+  --contour: #8a6a3c;
+  --contour-soft: rgba(138, 106, 60, 0.09);
+
+  /* Course purple — the IOF standard color for printing control circles and
+     course lines on an orienteering map; the app's primary interactive accent. */
+  --accent: #9c3a98;
+  --accent-hover: #b158ac;
+  --accent-active: #7e2f7c;
+  --accent-fg: #fbf7ee;
+  --accent-soft: rgba(156, 58, 152, 0.14);
+
+  /* Flag orange — the international control flag; danger/alert. */
+  --danger: #c8461f;
+  --danger-hover: #d65f37;
+  --danger-active: #a83a19;
+  --danger-soft: rgba(200, 70, 31, 0.14);
+
+  /* Night navy — reserved for the app's overnight controls/legs (Yörasti). */
+  --warn: #33366b;
+  --warn-soft: rgba(51, 54, 107, 0.14);
+
+  /* Moss green — vegetation; success/ok. */
+  --ok: #4f7a3a;
+  --ok-soft: rgba(79, 122, 58, 0.14);
+
+  /* Open-land ochre — mid-severity caution, distinct from the night-navy above. */
+  --caution: #9c650c;
+  --caution-soft: rgba(156, 101, 12, 0.16);
+
+  --shadow-sm: 0 1px 2px rgba(32, 29, 21, 0.10);
+  --shadow-md: 0 8px 22px rgba(32, 29, 21, 0.16);
+  --shadow-lg: 0 18px 44px rgba(32, 29, 21, 0.22);
+
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  --font: "Barlow", -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
+  --font-display: "Barlow Condensed", var(--font);
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Dark variant — a forest-at-night reading rather than a plain hue-swap of
+   the light theme. The light theme's primary accent is course-marking
+   purple, but a cool purple/pink fights a warm near-black backdrop, so the
+   dark variant's primary accent is a headlamp gold instead — still grounded
+   (the beam of light an organizer actually works by out there at night) and
+   in the same warm family as the contour lines instead of clashing with it.
+   Flag-orange/moss-green carry over; the night-navy overnight token inverts
+   to a pale moonlight blue so it still pops against an already-dark page. */
+:root[data-theme="dark"] {
+  --bg: #16150f;
+  --bg-elev: #2b2717;
+  --bg-elev-2: #36301e;
+  --bg-input: #221e14;
+
+  --fg: #f1ecdc;
+  --fg-muted: #b3a98d;
+  --fg-subtle: #7d7359;
+
+  --border: #3f3820;
+  --border-strong: #5a4f2e;
+  --contour: #b08a4a;
+  --contour-soft: rgba(176, 138, 74, 0.14);
+
+  --accent: #f2b632;
+  --accent-hover: #f7c860;
+  --accent-active: #cf9620;
+  --accent-fg: #1a1611;
+  --accent-soft: rgba(242, 182, 50, 0.16);
+
+  --danger: #f0824a;
+  --danger-hover: #f59c6c;
+  --danger-active: #c8632c;
+  --danger-soft: rgba(240, 130, 74, 0.16);
+
+  /* Moonlight — the overnight-control token, inverted to a pale lavender so
+     it still pops against a page that's already dark. */
+  --warn: #a3a8e6;
+  --warn-soft: rgba(163, 168, 230, 0.16);
+
+  --ok: #96cc72;
+  --ok-soft: rgba(150, 204, 114, 0.16);
+
+  --caution: #e0ab4a;
+  --caution-soft: rgba(224, 171, 74, 0.18);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 22px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 18px 44px rgba(0, 0, 0, 0.55);
 }
 
 html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); font-family: var(--font); }
 body { line-height: 1.5; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
-h1, h2, h3, h4 { font-weight: 700; letter-spacing: -0.01em; }
+h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 700; letter-spacing: 0; }
 
 ::selection { background: var(--accent); color: var(--accent-fg); }
 
@@ -52,12 +128,12 @@ button {
 button:hover { background: var(--accent-hover); }
 button:active { background: var(--accent-active); transform: translateY(1px); }
 button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
-button.secondary { background: var(--bg-input); color: var(--fg); border: 1px solid var(--border); }
-button.secondary:hover { background: var(--bg-elev-2); border-color: var(--border-strong); }
+button.secondary { background: var(--bg-elev); color: var(--fg); border: 1px solid var(--border-strong); }
+button.secondary:hover { background: var(--bg-elev-2); border-color: var(--contour); }
 button.secondary:active { background: var(--bg-input); }
-button.danger { background: var(--danger); color: #330f0f; }
-button.danger:hover { background: #ff8484; }
-button.danger:active { background: #e65a5a; }
+button.danger { background: var(--danger); color: var(--accent-fg); }
+button.danger:hover { background: var(--danger-hover); }
+button.danger:active { background: var(--danger-active); }
 
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible,
 summary:focus-visible, [tabindex]:focus-visible {
@@ -74,9 +150,10 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
 input::placeholder { color: var(--fg-subtle); }
 input:disabled, select:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* Plain checkboxes/radios (multi-select task pickers) keep native rendering
-   but pick up the theme's accent color. */
-input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); cursor: pointer; }
+/* Plain checkboxes/radios (multi-select task pickers) and sliders (e.g. the
+   fitness-curve sharpness control) keep native rendering but pick up the
+   theme's accent color. */
+input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color: var(--accent); cursor: pointer; }
 
 /* Standalone on/off flags (Rajaton, Rinnakkain, map layers, simulation/display
    toggles) render as a sliding switch instead of a native checkbox. */
@@ -90,17 +167,17 @@ input[type="checkbox"].switch {
 }
 input[type="checkbox"].switch::after {
   content: ""; position: absolute; top: 0.14em; left: 0.14em;
-  width: 1em; height: 1em; border-radius: 50%; background: var(--fg-muted);
+  width: 1em; height: 1em; border-radius: 50%; background: var(--fg-subtle);
   transition: transform 0.15s var(--ease), background-color 0.15s var(--ease);
 }
 input[type="checkbox"].switch:hover { border-color: var(--border-strong); }
 input[type="checkbox"].switch:checked { background: var(--accent); border-color: var(--accent); }
-input[type="checkbox"].switch:checked::after { transform: translateX(1.05em); background: #fff; }
+input[type="checkbox"].switch:checked::after { transform: translateX(1.05em); background: var(--accent-fg); }
 input[type="checkbox"].switch:disabled { opacity: 0.45; cursor: not-allowed; }
 input[type="checkbox"].switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 table { border-collapse: collapse; width: 100%; }
 th, td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
-th { background: var(--bg-elev-2); color: var(--fg-muted); font-weight: 600; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; }
+th { background: transparent; color: var(--fg-muted); font-weight: 600; font-size: 0.82rem; border-bottom: 2px solid var(--contour); }
 tbody tr { transition: background-color 0.1s var(--ease); }
-tbody tr:hover { background: var(--bg-elev); }
+tbody tr:hover { background: var(--contour-soft); }

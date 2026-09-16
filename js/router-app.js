@@ -2,6 +2,7 @@
 import { register, start } from "./router.js";
 import { initDemoChrome } from "./util/demo.js";
 import { initNavMenu } from "./util/navmenu.js";
+import { initTheme } from "./util/theme.js";
 import { initPrintExpand } from "./util/printExpand.js";
 import * as tehtavat from "./views/tehtavat.js";
 import * as rastit from "./views/rastit.js";
@@ -21,5 +22,6 @@ register("asetukset", asetukset.render);
 
 initDemoChrome();
 initNavMenu();
+initTheme();
 initPrintExpand();
 start();
