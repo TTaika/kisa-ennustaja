@@ -644,12 +644,15 @@ function buildScene(state, courseId, layers, fit) {
       id: course.id,
       name: course.name,
       color: layers.showAllCourses ? ROUTE_PALETTE[i % ROUTE_PALETTE.length] : "var(--ok)",
-      stops: course.stops.map(s => state.controlPoints.find(cp => cp.id === s.cpId)).filter(Boolean),
       legs
     };
   });
   const areas = layers.showForbidden ? (state.forbiddenAreas || []) : [];
-  const allPts = [...state.controlPoints, ...areas.flatMap(a => a.ring || [])];
+  // Include route-shape points too, not just the CPs — a detoured real path
+  // can bow out well past the straight line between its two endpoints, and
+  // the illustrative view's bounding box needs to cover that or the route
+  // gets clipped/squished against the edge.
+  const allPts = [...state.controlPoints, ...areas.flatMap(a => a.ring || []), ...routes.flatMap(r => r.legs.flatMap(l => l.points))];
   const projector = fit ? null : buildProjector(allPts);
   return { cps, routes, areas, showLabels: layers.showLabels, showDistances: layers.showDistances, projector, pendingRing: uiMode === "drawArea" ? pendingRing : [] };
 }
@@ -821,19 +824,17 @@ function illustrativeSvg(state, scene) {
     `;
   }).join("");
 
-  const routeHtml = scene.routes.map(route => route.stops.length > 1
-    ? `<polyline points="${route.stops.map(cp => project(cp.lat, cp.lng).join(",")).join(" ")}" fill="none" stroke="${escapeAttr(route.color)}" stroke-width="2.5" stroke-dasharray="6 4"></polyline>`
-    : ""
-  ).join("");
+  const routeHtml = scene.routes.map(route => route.legs.map(leg =>
+    `<polyline points="${leg.points.map(p => project(p.lat, p.lng).join(",")).join(" ")}" fill="none" stroke="${escapeAttr(route.color)}" stroke-width="2.5" stroke-dasharray="6 4"></polyline>`
+  ).join("")).join("");
 
-  const distanceHtml = scene.showDistances ? scene.routes.map(route => route.stops.length > 1
-    ? route.stops.slice(1).map((cp, i) => {
-        const a = route.stops[i], b = cp;
-        const [ax, ay] = project(a.lat, a.lng), [bx, by] = project(b.lat, b.lng);
-        const m = Math.round(haversineM(a, b));
-        return `<text x="${(ax + bx) / 2}" y="${(ay + by) / 2}" font-size="11" fill="#e8ecf1">${m} m</text>`;
-      }).join("")
-    : ""
+  const distanceHtml = scene.showDistances ? scene.routes.map(route =>
+    route.legs.map(leg => {
+      const mid = leg.points[Math.floor(leg.points.length / 2)];
+      const [x, y] = project(mid.lat, mid.lng);
+      const m = Math.round(leg.distanceM ?? haversineM(leg.points[0], leg.points[leg.points.length - 1]));
+      return `<text x="${x}" y="${y}" font-size="11" fill="#e8ecf1">${m} m</text>`;
+    }).join("")
   ).join("") : "";
 
   const pendingHtml = scene.pendingRing.length ? `
