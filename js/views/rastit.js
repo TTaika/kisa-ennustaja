@@ -1,6 +1,6 @@
 import { getState, update, genId } from "../state.js";
 import { rerender } from "../router.js";
-import { escapeAttr, escapeText, minsToHHMM, hhmmToMins } from "../util/format.js";
+import { escapeAttr, escapeText, minsToHHMM, hhmmToMins, seedAttr } from "../util/format.js";
 import { parseCoords, formatCoords } from "../model/route.js";
 import { openModal } from "../util/modal.js";
 import { initSearchPicker } from "../util/searchPicker.js";
@@ -92,7 +92,7 @@ function openCpModal(existingCp) {
       body.innerHTML = `
         <form id="cp-form">
           <div class="row">
-            <label>Nimi <input name="name" type="text" required value="${escapeAttr(seedName)}"></label>
+            <label>Nimi <input name="name" type="text" ${seedAttr(isEdit, seedName)}></label>
           </div>
           <div class="row">
             <label>Sijainti <input name="coords" type="text" value="${escapeAttr(seedCoords)}" placeholder="lat, lng"></label>
@@ -150,7 +150,7 @@ function openCpModal(existingCp) {
         const parsed = parseCoords(field("coords").value);
         const closingVal = field("closing").value;
         const values = {
-          name: field("name").value.trim() || "Nimetön rasti",
+          name: field("name").value.trim() || seedName,
           lat: parsed ? parsed.lat : null,
           lng: parsed ? parsed.lng : null,
           closingTimeMin: closingVal === "" ? null : hhmmToMins(closingVal),

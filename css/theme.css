@@ -105,6 +105,12 @@
   --shadow-lg: 0 18px 44px rgba(0, 0, 0, 0.55);
 }
 
+/* Author rules of equal specificity (e.g. .row's display:flex) would
+   otherwise beat the UA stylesheet's [hidden] rule — pin it explicitly so
+   toggling the `hidden` property always works regardless of what else
+   the element is styled with. */
+[hidden] { display: none !important; }
+
 html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); font-family: var(--font); }
 body { line-height: 1.5; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
 h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 700; letter-spacing: 0; }

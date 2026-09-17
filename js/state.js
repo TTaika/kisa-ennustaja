@@ -35,7 +35,19 @@ const DEFAULT_SIMULATION = {
   disableQueueing: false,       // when true, every tehtävä is treated as Rajaton in the simulator
   fitnessCurve: "normal",       // "normal" = bell, "linear" = evenly spaced, "power" = skewed
   fitnessSharpness: 1.0,        // 0.3..3.0; meaning depends on curve (see simulate.js)
-  reverseOvernightOrder: false  // when true, the last team to arrive at the sleeping CP is first to leave next morning
+  // Yörastilta poistuminen — how teams leave a sleeping CP the next morning.
+  // Both staggered modes share the same gap (overnightDepartureIntervalMin)
+  // and both honor reverseOvernightOrder; they only differ in whose arrival
+  // order counts:
+  //  "together"     = Yhteislähtö, every team restarts at startMinutes2 at once
+  //  "perCategory"  = Porrastettu poistuminen sarjoittain (default/legacy),
+  //                   staggered by arrival order within that category only
+  //  "perRace"      = Porrastettu poistuminen kaikki huomioiden, staggered by
+  //                   arrival order across every category sharing that CP
+  //                   the same night
+  overnightDepartureMode: "perCategory",
+  overnightDepartureIntervalMin: 5, // "Poistumisväli" — gap for both staggered modes
+  reverseOvernightOrder: false      // last-arrived-leaves-first; both staggered modes
 };
 const DEFAULT_DISPLAY = {
   showDayPrefix: true,          // when true, day-2+ times show their weekday name (e.g. "Lauantai 09:00")
@@ -221,6 +233,8 @@ export function ensureDefaults(s) {
   if (!s.defaults.course)       s.defaults.course       = structuredClone(DEFAULT_COURSE_DEFAULTS);
   if (!s.defaults.category)     s.defaults.category     = structuredClone(DEFAULT_CATEGORY_DEFAULTS);
   if (!s.simulation) s.simulation = structuredClone(DEFAULT_SIMULATION);
+  if (!s.simulation.overnightDepartureMode) s.simulation.overnightDepartureMode = DEFAULT_SIMULATION.overnightDepartureMode;
+  if (s.simulation.overnightDepartureIntervalMin == null) s.simulation.overnightDepartureIntervalMin = DEFAULT_SIMULATION.overnightDepartureIntervalMin;
   if (!s.display)    s.display    = structuredClone(DEFAULT_DISPLAY);
   if (!s.map) s.map = structuredClone(DEFAULT_MAP);
   if (!s.map.calibration || !Array.isArray(s.map.calibration.points)) s.map.calibration = { points: [] };
@@ -242,8 +256,34 @@ function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+// "Palauta oletukset" (Asetukset): restores the bundled DEMO race — sample
+// tasks/rastit/radat/sarjat included. Distinct from createEmptyRace(),
+// which is what "Luo uusi kilpailu" on the start screen actually wants: a
+// genuinely blank project, not the demo content again.
 export function resetToDefaults() {
   setState(structuredClone(DEFAULT_STATE));
+}
+
+export function createEmptyRace() {
+  const empty = {
+    schemaVersion: SCHEMA_VERSION,
+    race: { name: "Uusi kilpailu", startDateISO: new Date().toISOString().slice(0, 10), logo: null },
+    defaults: {
+      task: structuredClone(DEFAULT_TASK_DEFAULTS),
+      controlPoint: structuredClone(DEFAULT_CP_DEFAULTS),
+      course: structuredClone(DEFAULT_COURSE_DEFAULTS),
+      category: structuredClone(DEFAULT_CATEGORY_DEFAULTS)
+    },
+    simulation: structuredClone(DEFAULT_SIMULATION),
+    display: structuredClone(DEFAULT_DISPLAY),
+    map: structuredClone(DEFAULT_MAP),
+    forbiddenAreas: [],
+    tasks: [],
+    controlPoints: [],
+    courses: [],
+    categories: []
+  };
+  setState(ensureDefaults(empty));
 }
 
 export function genId(prefix) {

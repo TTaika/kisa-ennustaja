@@ -65,9 +65,26 @@ function simulationCardHtml() {
 
     <h3 class="subhead">Yörastilta poistuminen</h3>
     <div class="row">
-      <label style="flex-direction:row; align-items:center;" title="Kun valittu, yöhön viimeisenä saapunut joukkue lähtee aamulla ensimmäisenä.">
-        <input class="f-reverse-overnight switch" type="checkbox" ${sim.reverseOvernightOrder ? "checked" : ""}> Käänteinen lähtöjärjestys
+      <label>Poistumismalli
+        <select class="f-overnight-mode">
+          <option value="together" ${sim.overnightDepartureMode === "together" ? "selected" : ""}>Yhteislähtö</option>
+          <option value="perCategory" ${sim.overnightDepartureMode === "perCategory" ? "selected" : ""}>Porrastettu poistuminen sarjoittain</option>
+          <option value="perRace" ${sim.overnightDepartureMode === "perRace" ? "selected" : ""}>Porrastettu poistuminen kaikki huomioiden</option>
+        </select>
       </label>
+    </div>
+    <div class="overnight-gap-options">
+      <div class="sim-controls">
+        <span class="control-label">Poistumisväli</span>
+        <div class="overnight-interval-field">
+          <input class="f-overnight-interval" type="number" min="0" step="1" value="${sim.overnightDepartureIntervalMin}">
+          <span class="text-muted">min</span>
+        </div>
+        <span class="control-label">Lähtöjärjestys</span>
+        <label class="overnight-reverse-label" title="Kun valittu, yöhön viimeisenä saapunut joukkue lähtee aamulla ensimmäisenä.">
+          <input class="f-reverse-overnight switch" type="checkbox" ${sim.reverseOvernightOrder ? "checked" : ""}> Käänteinen lähtöjärjestys
+        </label>
+      </div>
     </div>
 
     <h3 class="subhead">Kuntoisuus</h3>
@@ -99,6 +116,18 @@ function simulationCardHtml() {
     </div>
   `;
   card.querySelector(".f-disable-queue").addEventListener("change", (e) => update(st => { st.simulation.disableQueueing = e.target.checked; }));
+
+  const overnightModeSel = card.querySelector(".f-overnight-mode");
+  const overnightGapOptions = card.querySelector(".overnight-gap-options");
+  const syncOvernightVisibility = () => { overnightGapOptions.hidden = overnightModeSel.value === "together"; };
+  overnightModeSel.addEventListener("change", (e) => {
+    update(st => { st.simulation.overnightDepartureMode = e.target.value; });
+    syncOvernightVisibility();
+  });
+  syncOvernightVisibility();
+  card.querySelector(".f-overnight-interval").addEventListener("change", (e) => {
+    update(st => { st.simulation.overnightDepartureIntervalMin = Math.max(0, Number(e.target.value) || 0); });
+  });
   card.querySelector(".f-reverse-overnight").addEventListener("change", (e) => update(st => { st.simulation.reverseOvernightOrder = e.target.checked; }));
 
   const dotsEl = card.querySelector("#team-dots");

@@ -415,30 +415,71 @@ test("overnight is derived from controlPoints[].isSleepingCp, not a per-stop fla
   assert.equal(teams[0].stops[2].arriveMin, 1985);
 });
 
-test("overnight: day-2 departures are staggered in arrival order at the sleeping CP", () => {
+test("overnight, perCategory mode (default): day-2 departures are staggered in arrival order, gapped by overnightDepartureIntervalMin (default 5, not teamStartIntervalMin)", () => {
   const cpsO = [
     { id: "A", name: "Lähtö", taskIds: ["tA"] },
     { id: "B", name: "Yö", taskIds: ["tB"], isSleepingCp: true },
     { id: "C", name: "Maali", taskIds: ["tC"] }
   ];
-  const cat = baseCat({ teamCount: 3, teamStartIntervalMin: 5, startMinutes2: 540 });
+  const cat = baseCat({ teamCount: 3, teamStartIntervalMin: 999, startMinutes2: 540 });
   const { teams } = simulateRace(cpsO, baseTasks(), [baseCourse()], [cat]);
-  assert.equal(teams[0].stops[2].arriveMin, 1985);   // 1980 + 0 + 5
-  assert.equal(teams[1].stops[2].arriveMin, 1990);   // 1980 + 5 + 5
-  assert.equal(teams[2].stops[2].arriveMin, 1995);   // 1980 + 10 + 5
+  assert.equal(teams[0].stops[2].arriveMin, 1985);   // 1980 + 0*5 + 5
+  assert.equal(teams[1].stops[2].arriveMin, 1990);   // 1980 + 1*5 + 5
+  assert.equal(teams[2].stops[2].arriveMin, 1995);   // 1980 + 2*5 + 5
 });
 
-test("overnight + reverseOvernightOrder: last arrival at the sleeping CP is first to leave next morning", () => {
+test("overnight, perCategory mode: reverseOvernightOrder reverses within-category order too, using overnightDepartureIntervalMin", () => {
+  const cpsO = [
+    { id: "A", name: "Lähtö", taskIds: ["tA"] },
+    { id: "B", name: "Yö", taskIds: ["tB"], isSleepingCp: true },
+    { id: "C", name: "Maali", taskIds: ["tC"] }
+  ];
+  const cat = baseCat({ teamCount: 3, teamStartIntervalMin: 999, startMinutes2: 540 });
+  const { teams } = simulateRace(cpsO, baseTasks(), [baseCourse()], [cat], {
+    overnightDepartureMode: "perCategory",
+    overnightDepartureIntervalMin: 10,
+    reverseOvernightOrder: true
+  });
+  // teamStartIntervalMin (999) is ignored; gap is overnightDepartureIntervalMin (10).
+  assert.equal(teams[2].stops[2].arriveMin, 1985);   // last arrival (team2) leaves first
+  assert.equal(teams[1].stops[2].arriveMin, 1995);
+  assert.equal(teams[0].stops[2].arriveMin, 2005);
+});
+
+test("overnight, together mode (Yhteislähtö): every team restarts at the same instant", () => {
   const cpsO = [
     { id: "A", name: "Lähtö", taskIds: ["tA"] },
     { id: "B", name: "Yö", taskIds: ["tB"], isSleepingCp: true },
     { id: "C", name: "Maali", taskIds: ["tC"] }
   ];
   const cat = baseCat({ teamCount: 3, teamStartIntervalMin: 5, startMinutes2: 540 });
-  const { teams } = simulateRace(cpsO, baseTasks(), [baseCourse()], [cat], { reverseOvernightOrder: true });
+  const { teams } = simulateRace(cpsO, baseTasks(), [baseCourse()], [cat], { overnightDepartureMode: "together" });
+  assert.equal(teams[0].stops[2].arriveMin, 1985);
+  assert.equal(teams[1].stops[2].arriveMin, 1985);
   assert.equal(teams[2].stops[2].arriveMin, 1985);
-  assert.equal(teams[1].stops[2].arriveMin, 1990);
-  assert.equal(teams[0].stops[2].arriveMin, 1995);
+});
+
+test("overnight, perRace mode: gap comes from overnightDepartureIntervalMin, order spans every category at that CP", () => {
+  const cpsO = [
+    { id: "A", name: "Lähtö", taskIds: ["tA"] },
+    { id: "B", name: "Yö", taskIds: ["tB"], isSleepingCp: true },
+    { id: "C", name: "Maali", taskIds: ["tC"] }
+  ];
+  const tasks = baseTasks();
+  const catA = baseCat({ id: "catA", startMinutes1: 600, teamCount: 1, startMinutes2: 540 });
+  const catB = baseCat({ id: "catB", startMinutes1: 610, teamCount: 1, startMinutes2: 540 }); // arrives later at B
+  const { teams } = simulateRace(cpsO, tasks, [baseCourse()], [catA, catB], {
+    overnightDepartureMode: "perRace",
+    overnightDepartureIntervalMin: 10,
+    reverseOvernightOrder: true
+  });
+  const a = teams.find(t => t.catId === "catA");
+  const b = teams.find(t => t.catId === "catB");
+  // catB arrived later at the sleeping CP, so with reverseOvernightOrder it
+  // leaves FIRST next morning, gapped by 10 min (not either category's own
+  // teamStartIntervalMin).
+  assert.equal(b.stops[2].arriveMin, 1985);        // 540 + 1440 + 5 (walk)
+  assert.equal(a.stops[2].arriveMin, 1995);         // 540 + 1440 + 10 + 5 (walk)
 });
 
 test("multi-day: two Yörasti CPs in sequence each add a full further day, not a repeat of day 2", () => {

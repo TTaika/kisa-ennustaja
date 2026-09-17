@@ -6,7 +6,7 @@
 import { getState } from "../state.js";
 import { simulateRace } from "../model/simulate.js";
 import { findCp, findTask, findCourse } from "../util/lookup.js";
-import { escapeText, escapeAttr, fmtTime, fmtDuration, weekdayLabel } from "../util/format.js";
+import { escapeText, escapeAttr, fmtTime, fmtDuration, weekdayLabel, weekdayEssive } from "../util/format.js";
 import { bindCollapse } from "../util/collapseMemory.js";
 
 const DAY_MIN = 1440;
@@ -28,7 +28,7 @@ export function render(root) {
     banner.innerHTML = `
       <span class="alert-icon">⚠</span>
       <div>
-        ${breaches.map(b => `<div><strong>${escapeText(b.cp.name)}</strong> — viimeinen arvioitu saapuminen ${fmtTime(b.lastArrivalMin, state.race.startDateISO)}, sulkeutuu ${fmtTime(b.cp.closingTimeMin, state.race.startDateISO)}. Rasti ylittyy noin ${fmtDuration(b.lastArrivalMin - b.cp.closingTimeMin)}.</div>`).join("")}
+        ${breaches.map(b => `<div><strong>${escapeText(b.cp.name)}</strong> — viimeinen arvioitu saapuminen ${fmtT(state, b.lastArrivalMin)}, sulkeutuu ${fmtT(state, b.cp.closingTimeMin)}. Rasti ylittyy noin ${fmtDuration(b.lastArrivalMin - b.cp.closingTimeMin)}.</div>`).join("")}
       </div>
     `;
     root.appendChild(banner);
@@ -69,6 +69,12 @@ function toolbarHtml() {
 
 function withNames(state, r) {
   return { ...r, cp: findCp(state, r.cpId), task: findTask(state, r.taskId) };
+}
+
+// Wraps fmtTime with this race's date + the "Näytä viikonpäivä" display
+// setting, so every call site doesn't have to thread both through itself.
+function fmtT(state, totalMin) {
+  return fmtTime(totalMin, state.race.startDateISO, state.display?.showDayPrefix !== false);
 }
 
 function severityClass(worstWaitMin) {
@@ -187,6 +193,18 @@ function renderMasterPage(state, taskStats) {
   const earliestStart = sarjaCount ? Math.min(...state.categories.map(c => c.startMinutes1)) : null;
   const latestStart = sarjaCount ? Math.max(...state.categories.map(c => c.startMinutes1)) : null;
 
+  // Overnight-departure info consolidated here instead of repeated on every
+  // Sarja card — startMinutes2 is still per-category, but Poistumisväli
+  // (the gap) is a single race-wide simulation setting.
+  const hasOvernight = state.controlPoints.some(cp => cp.isSleepingCp);
+  const sim = state.simulation || {};
+  const overnightDepartHtml = hasOvernight && sarjaCount
+    ? `Lähtö yön jälkeen: <strong>${state.categories.map(c => `${escapeText(c.name)} ${fmtT(state, c.startMinutes2)}`).join(", ")}</strong>`
+    : "";
+  const poistumisvaliHtml = hasOvernight && sim.overnightDepartureMode && sim.overnightDepartureMode !== "together"
+    ? `Poistumisväli: <strong>${sim.overnightDepartureIntervalMin} min</strong>`
+    : "";
+
   page.innerHTML = `
     <summary><h2>Yhteenveto</h2></summary>
     <header class="print-header">
@@ -198,10 +216,11 @@ function renderMasterPage(state, taskStats) {
       <div class="print-meta">
         <div><strong>${totalTeams}</strong> joukkuetta yhteensä</div>
         <div><strong>${sarjaCount}</strong> sarjaa</div>
-        <div>Aikaisin lähtö: <strong>${earliestStart == null ? "—" : fmtTime(earliestStart, state.race.startDateISO)}</strong></div>
-        <div>Viimeisin lähtö: <strong>${latestStart == null ? "—" : fmtTime(latestStart, state.race.startDateISO)}</strong></div>
+        <div>Aikaisin lähtö: <strong>${earliestStart == null ? "—" : fmtT(state, earliestStart)}</strong></div>
+        <div>Viimeisin lähtö: <strong>${latestStart == null ? "—" : fmtT(state, latestStart)}</strong></div>
         <div>Sarjat: <strong>${sarjaLista}</strong></div>
-        <div></div>
+        ${overnightDepartHtml ? `<div>${overnightDepartHtml}</div>` : "<div></div>"}
+        ${poistumisvaliHtml ? `<div>${poistumisvaliHtml}</div>` : ""}
       </div>
     </header>
     <table class="print-table">
@@ -227,10 +246,10 @@ function masterRowHtml(state, num, cp, task, slots, firstArrive, lastArrive, fir
       <td>${escapeText(cp.name)}${overnight ? ' <span class="overnight-tag">YÖ</span>' : ""}</td>
       <td>${task ? escapeText(task.name) : "—"}</td>
       <td class="nowrap">${escapeText(slots)}</td>
-      <td class="nowrap">${firstArrive == null ? "—" : fmtTime(firstArrive, state.race.startDateISO)}</td>
-      <td class="nowrap">${lastArrive == null ? "—" : fmtTime(lastArrive, state.race.startDateISO)}</td>
-      <td class="nowrap">${firstLeave == null ? "—" : fmtTime(firstLeave, state.race.startDateISO)}</td>
-      <td class="nowrap">${lastLeave == null ? "—" : fmtTime(lastLeave, state.race.startDateISO)}</td>
+      <td class="nowrap">${firstArrive == null ? "—" : fmtT(state, firstArrive)}</td>
+      <td class="nowrap">${lastArrive == null ? "—" : fmtT(state, lastArrive)}</td>
+      <td class="nowrap">${firstLeave == null ? "—" : fmtT(state, firstLeave)}</td>
+      <td class="nowrap">${lastLeave == null ? "—" : fmtT(state, lastLeave)}</td>
       <td class="nowrap">${Math.round(maxWait || 0)}</td>
     </tr>
   `;
@@ -523,8 +542,9 @@ function renderSarjaPage(state, sched) {
   });
   const totalDistance = dayDistances.reduce((a, b) => a + b, 0);
   const dayDistanceHtml = dayDistances
-    .map((d, i) => `<div>Päivä ${i + 1} matka: <strong>${(d / 1000).toFixed(2)} km</strong></div>`)
+    .map((d, i) => `<div>Matka ${escapeText(weekdayEssive(state.race.startDateISO, i))}: <strong>${(d / 1000).toFixed(2)} km</strong></div>`)
     .join("");
+  const startWeekday = weekdayLabel(state.race.startDateISO, 0).toLowerCase();
 
   let rowNumber = 0;
   const rowsHtml = rows.map(r => sarjaRowHtml(state, ++rowNumber, r)).join("");
@@ -541,9 +561,7 @@ function renderSarjaPage(state, sched) {
         <div><strong>${cat.teamCount}</strong> joukkuetta</div>
         <div>Kävelynopeus: <strong>${cat.walkSpeedKmh} km/h</strong> (${cat.fastestMultiplier}×–${cat.slowestMultiplier}×)</div>
         <div>Rata: <strong>${escapeText(course.name)}</strong></div>
-        <div>Lähtö pv 1: <strong>${fmtTime(cat.startMinutes1, state.race.startDateISO)}</strong></div>
-        <div>Lähtö (yön jälkeen): <strong>${fmtTime(cat.startMinutes2, state.race.startDateISO)}</strong></div>
-        <div>Lähtöväli: <strong>${cat.teamStartIntervalMin} min</strong></div>
+        <div>Lähtö ${escapeText(startWeekday)}: <strong>${fmtT(state, cat.startMinutes1)}</strong></div>
         <div>Kokonaismatka: <strong>${(totalDistance / 1000).toFixed(2)} km</strong></div>
         ${dayDistanceHtml}
       </div>
@@ -570,10 +588,10 @@ function sarjaRowHtml(state, num, r) {
       <td>${escapeText(r.cp.name)}${r.overnight ? ' <span class="overnight-tag">YÖ</span>' : ""}</td>
       <td>${r.task ? escapeText(r.task.name) : "—"}</td>
       <td class="nowrap">${r.distanceM > 0 ? r.distanceM : "—"}</td>
-      <td class="nowrap">${fmtTime(r.firstArrive, state.race.startDateISO)}</td>
-      <td class="nowrap">${fmtTime(r.lastArrive, state.race.startDateISO)}</td>
-      <td class="nowrap">${fmtTime(r.firstLeave, state.race.startDateISO)}</td>
-      <td class="nowrap">${fmtTime(r.lastLeave, state.race.startDateISO)}</td>
+      <td class="nowrap">${fmtT(state, r.firstArrive)}</td>
+      <td class="nowrap">${fmtT(state, r.lastArrive)}</td>
+      <td class="nowrap">${fmtT(state, r.firstLeave)}</td>
+      <td class="nowrap">${fmtT(state, r.lastLeave)}</td>
       <td class="nowrap">${Math.round(r.worstWaitMin || 0)}</td>
     </tr>
   `;

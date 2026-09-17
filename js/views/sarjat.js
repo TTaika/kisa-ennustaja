@@ -1,7 +1,7 @@
 import { getState, update, genId } from "../state.js";
 import { rerender } from "../router.js";
 import { findCourse } from "../util/lookup.js";
-import { escapeAttr, escapeText, minsToHHMM, hhmmToMins } from "../util/format.js";
+import { escapeAttr, escapeText, minsToHHMM, hhmmToMins, seedAttr } from "../util/format.js";
 import { bindCollapse } from "../util/collapseMemory.js";
 import { openModal } from "../util/modal.js";
 import { initDropdownMenu } from "../util/dropdownMenu.js";
@@ -119,7 +119,7 @@ function openCatModal(existingCat) {
         <form id="cat-form">
           <div class="row">
             <label>Väri <input name="color" type="color" value="${escapeAttr(seedColor)}" style="width:3rem; padding:0.2rem;"></label>
-            <label style="flex:1;">Nimi <input name="name" type="text" required value="${escapeAttr(seedName)}"></label>
+            <label style="flex:1;">Nimi <input name="name" type="text" ${seedAttr(isEdit, seedName)}></label>
           </div>
           <div class="row">
             <label style="flex:1;">Rata
@@ -130,14 +130,14 @@ function openCatModal(existingCat) {
             </label>
           </div>
           <div class="row">
-            <label>Kävelynopeus (km/h) <input name="walkSpeedKmh" type="number" step="0.1" value="${seed.walkSpeedKmh ?? 4.0}"></label>
-            <label>Nopein kerroin <input name="fastestMultiplier" type="number" step="0.05" value="${seed.fastestMultiplier ?? 1.15}"></label>
-            <label>Hitain kerroin <input name="slowestMultiplier" type="number" step="0.05" value="${seed.slowestMultiplier ?? 0.85}"></label>
+            <label>Kävelynopeus (km/h) <input name="walkSpeedKmh" type="number" step="0.1" ${seedAttr(isEdit, seed.walkSpeedKmh ?? 4.0)}></label>
+            <label>Nopein kerroin <input name="fastestMultiplier" type="number" step="0.05" ${seedAttr(isEdit, seed.fastestMultiplier ?? 1.15)}></label>
+            <label>Hitain kerroin <input name="slowestMultiplier" type="number" step="0.05" ${seedAttr(isEdit, seed.slowestMultiplier ?? 0.85)}></label>
           </div>
           <div class="row">
-            <label>Tehtävien hajonta <input name="taskVariance" type="number" step="0.05" value="${seed.taskVariance ?? 0.15}"></label>
-            <label>Joukkueita <input name="teamCount" type="number" min="1" value="${seed.teamCount ?? 10}"></label>
-            <label>Lähtöväli (min) <input name="teamStartIntervalMin" type="number" min="0" value="${seed.teamStartIntervalMin ?? 5}"></label>
+            <label>Tehtävien hajonta <input name="taskVariance" type="number" step="0.05" ${seedAttr(isEdit, seed.taskVariance ?? 0.15)}></label>
+            <label>Joukkueita <input name="teamCount" type="number" min="1" ${seedAttr(isEdit, seed.teamCount ?? 10)}></label>
+            <label>Lähtöväli (min) <input name="teamStartIntervalMin" type="number" min="0" ${seedAttr(isEdit, seed.teamStartIntervalMin ?? 5)}></label>
           </div>
           <div class="row">
             <label>Aloitus pv 1 <input name="startMinutes1" type="time" value="${minsToHHMM(seed.startMinutes1 ?? 540)}"></label>
@@ -155,19 +155,19 @@ function openCatModal(existingCat) {
 
       form.addEventListener("submit", (e) => {
         e.preventDefault();
-        const newTeamCount = Math.max(1, Math.round(+field("teamCount").value || 1));
+        const newTeamCount = Math.max(1, Math.round(+field("teamCount").value || seed.teamCount || 1));
         const values = {
-          name: field("name").value.trim() || "Nimetön sarja",
-          color: field("color").value || "#4f8cff",
+          name: field("name").value.trim() || seedName,
+          color: field("color").value || seedColor,
           courseId: field("courseId").value,
-          walkSpeedKmh: Math.max(0, +field("walkSpeedKmh").value || 0),
-          fastestMultiplier: +field("fastestMultiplier").value || 0,
-          slowestMultiplier: +field("slowestMultiplier").value || 0,
-          taskVariance: Math.max(0, +field("taskVariance").value || 0),
+          walkSpeedKmh: Math.max(0, +field("walkSpeedKmh").value || seed.walkSpeedKmh || 0),
+          fastestMultiplier: +field("fastestMultiplier").value || seed.fastestMultiplier || 0,
+          slowestMultiplier: +field("slowestMultiplier").value || seed.slowestMultiplier || 0,
+          taskVariance: Math.max(0, +field("taskVariance").value || seed.taskVariance || 0),
           startMinutes1: hhmmToMins(field("startMinutes1").value),
           startMinutes2: hhmmToMins(field("startMinutes2").value),
           teamCount: newTeamCount,
-          teamStartIntervalMin: Math.max(0, +field("teamStartIntervalMin").value || 0)
+          teamStartIntervalMin: Math.max(0, +field("teamStartIntervalMin").value || seed.teamStartIntervalMin || 0)
         };
         update(st => {
           if (isEdit) {

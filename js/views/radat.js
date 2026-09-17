@@ -1,11 +1,11 @@
 import { getState, update, genId } from "../state.js";
 import { rerender } from "../router.js";
 import { findCp, findTask, coursesUsedBy } from "../util/lookup.js";
-import { escapeAttr, escapeText } from "../util/format.js";
+import { escapeAttr, escapeText, seedAttr } from "../util/format.js";
 import { bindCollapse } from "../util/collapseMemory.js";
 import { openModal } from "../util/modal.js";
 import { initSearchPicker } from "../util/searchPicker.js";
-import { fetchFootDistanceM } from "../model/route.js";
+import { fetchFootRoute } from "../model/route.js";
 import { areasToValhalla } from "../model/area.js";
 import { showToast } from "../util/demo.js";
 
@@ -143,12 +143,15 @@ function stopRowHtml(course, stop, index) {
 
 function findCourseIn(st, id) { return st.courses.find(c => c.id === id); }
 
-// Fetches the real walking distance for every leg of every course, in the
-// stops' EXISTING order — no reordering, no optimization. One request per
-// leg, sent one at a time (not in parallel) to stay a reasonable citizen of
-// the public Valhalla server. Legs that fail (no network, missing
-// coordinates, routing error) are left with whatever distance they already
-// had, and are counted separately rather than aborting the whole run.
+// Fetches the real walking distance AND path geometry (routeShape, an
+// encoded polyline — see georef's Kartta tab, which draws it instead of a
+// straight line between the two rastit) for every leg of every course, in
+// the stops' EXISTING order — no reordering, no optimization. One request
+// per leg, sent one at a time (not in parallel) to stay a reasonable
+// citizen of the public Valhalla server. Legs that fail (no network,
+// missing coordinates, routing error) are left with whatever distance/shape
+// they already had, and are counted separately rather than aborting the
+// whole run.
 //
 // Each stop remembers a fingerprint of the leg it was last routed for (the
 // two endpoint control points' identity and coordinates, plus every enabled
@@ -163,7 +166,9 @@ function legFingerprint(prevCp, cp, forbiddenAreas) {
     .map(a => `${a.id}:${(a.ring || []).map(p => `${p.lat},${p.lng}`).join(";")}`)
     .sort()
     .join("|");
-  return JSON.stringify([prevCp.id, prevCp.lat, prevCp.lng, cp.id, cp.lat, cp.lng, areas]);
+  // "v2" forces a one-time re-fetch of legs cached under the old fingerprint
+  // scheme (distance only, no routeShape) so Kartta can draw the real path.
+  return JSON.stringify([prevCp.id, prevCp.lat, prevCp.lng, cp.id, cp.lat, cp.lng, areas, "v2"]);
 }
 
 async function calcAllDistances(btn) {
@@ -203,10 +208,11 @@ async function calcAllDistances(btn) {
     const key = legFingerprint(prevCp, cp, st0.forbiddenAreas);
     if (stop.routeFetchKey === key) { cached++; continue; }
     try {
-      const distanceM = await fetchFootDistanceM(prevCp, cp, { excludePolygons: areasToValhalla(st0.forbiddenAreas) });
+      const { distanceM, shape } = await fetchFootRoute(prevCp, cp, { excludePolygons: areasToValhalla(st0.forbiddenAreas) });
       update(s => {
         const st = findCourseIn(s, courseId).stops[stopIndex];
         st.distanceM = Math.round(distanceM);
+        st.routeShape = shape || null;
         st.routeFetchKey = key;
       });
       ok++;
@@ -283,10 +289,10 @@ function openCourseModal(existingCourse) {
       body.innerHTML = `
         <form id="course-form">
           <div class="row">
-            <label>Nimi <input name="name" type="text" required value="${escapeAttr(seedName)}"></label>
+            <label>Nimi <input name="name" type="text" ${seedAttr(isEdit, seedName)}></label>
           </div>
           <div class="row">
-            <label>Pohja-häröilyaika (min) <input name="haroilyBaselineMin" type="number" min="0" value="${seed.haroilyBaselineMin ?? 0}"></label>
+            <label>Pohja-häröilyaika (min) <input name="haroilyBaselineMin" type="number" min="0" ${seedAttr(isEdit, seed.haroilyBaselineMin ?? 0)}></label>
           </div>
           <div class="modal-actions">
             <button type="button" class="secondary" data-cancel>Peruuta</button>
@@ -301,8 +307,8 @@ function openCourseModal(existingCourse) {
       form.addEventListener("submit", (e) => {
         e.preventDefault();
         const values = {
-          name: field("name").value.trim() || "Nimetön rata",
-          haroilyBaselineMin: Math.max(0, +field("haroilyBaselineMin").value || 0)
+          name: field("name").value.trim() || seedName,
+          haroilyBaselineMin: Math.max(0, +field("haroilyBaselineMin").value || seed.haroilyBaselineMin || 0)
         };
         update(st => {
           if (isEdit) Object.assign(findCourseIn(st, existingCourse.id), values);

@@ -155,6 +155,8 @@ export function simulateRace(controlPoints, tasks, courses, categories, options 
   const disableQueueing       = !!options.disableQueueing;
   const fitnessCurve          = options.fitnessCurve || "normal";
   const fitnessSharpness      = options.fitnessSharpness ?? 1;
+  const overnightDepartureMode = options.overnightDepartureMode || "perCategory";
+  const overnightDepartureIntervalMin = options.overnightDepartureIntervalMin ?? 5;
   const reverseOvernightOrder = !!options.reverseOvernightOrder;
   const cpById     = new Map(controlPoints.map(cp => [cp.id, cp]));
   const taskById   = new Map(tasks.map(t => [t.id, t]));
@@ -218,8 +220,11 @@ export function simulateRace(controlPoints, tasks, courses, categories, options 
 
   // For every (category, route-stop) whose CP is the sleeping CP, this holds
   // the list of teamIdx values in arrival order — used to stagger morning
-  // departures.
+  // departures for "perCategory" mode.
   const overnightOrders = new Map();
+  // Same, but keyed by (cpId, night index) across every category sharing
+  // that physical overnight stop on the same night — used for "perRace" mode.
+  const overnightOrdersGlobal = new Map();
 
   let seqCounter = 0;
   const events = [];
@@ -288,12 +293,22 @@ export function simulateRace(controlPoints, tasks, courses, categories, options 
     const taskIds = stop.taskIds || [];
     const cp = cpById.get(stop.cpId);
 
-    // Record overnight arrival order on the team's first arrival at this stop.
+    // Record overnight arrival order on the team's first arrival at this stop
+    // — both per-category (for "perCategory" mode) and CP-wide across every
+    // category sharing this physical overnight stop the same night (for
+    // "perRace" mode). team._overnightCount here is still its PRE-increment
+    // value (the increment happens later, once this stop's tasks are done),
+    // i.e. "which night away is this" — consistent across every category.
     if (taskIdxInStop === 0 && cp?.isSleepingCp) {
-      const key = `${cat.id}::${routeIdx}`;
-      if (!overnightOrders.has(key)) overnightOrders.set(key, []);
-      const order = overnightOrders.get(key);
-      if (!order.includes(teamIdx)) order.push(teamIdx);
+      const catKey = `${cat.id}::${routeIdx}`;
+      if (!overnightOrders.has(catKey)) overnightOrders.set(catKey, []);
+      const catOrder = overnightOrders.get(catKey);
+      if (!catOrder.includes(teamIdx)) catOrder.push(teamIdx);
+
+      const globalKey = `${stop.cpId}::${team._overnightCount}`;
+      if (!overnightOrdersGlobal.has(globalKey)) overnightOrdersGlobal.set(globalKey, []);
+      const globalOrder = overnightOrdersGlobal.get(globalKey);
+      if (!globalOrder.includes(teamIdx)) globalOrder.push(teamIdx);
     }
 
     // Parallel-tasks stop: start every task at once.
@@ -447,19 +462,32 @@ export function simulateRace(controlPoints, tasks, courses, categories, options 
       // Overnight morning: this team has now passed through one more Yörasti,
       // so it advances to the next calendar day — always restarting at the
       // same startMinutes2 clock time, whichever day this is:
-      //   dayDepart = startMinutes2 + overnightCount × 1440 + (arrival order at this CP) × lähtöväli
+      //   dayDepart = startMinutes2 + overnightCount × 1440 + order × gap
       // A team passing through a 2nd, 3rd, ... Yörasti keeps incrementing the
       // counter, so each one adds a full further day rather than repeating
       // the same "day 2" instant. If the team's tasks (already
       // häröily-inclusive via `finishMin`) finished AFTER that scheduled
       // slot, clamp to finishMin so we don't send a team backwards in time.
+      //
+      // `order` depends on overnightDepartureMode; both staggered modes share
+      // the same gap (overnightDepartureIntervalMin, "Poistumisväli") and
+      // both honor reverseOvernightOrder (last arrival leaves first) — they
+      // only differ in whose arrival order counts:
+      //  "together"     → order 0: everyone restarts at the same instant.
+      //  "perCategory"  → arrival order within this category only.
+      //  "perRace"      → arrival order across every category sharing this
+      //                   CP the same night.
       team._overnightCount++;
-      const key = `${cat.id}::${routeIdx}`;
-      const arrIdx = overnightOrders.get(key)?.indexOf(teamIdx) ?? 0;
-      const order = reverseOvernightOrder
-        ? Math.max(0, (cat.teamCount - 1) - Math.max(0, arrIdx))
-        : Math.max(0, arrIdx);
-      const dayDepart = cat.startMinutes2 + team._overnightCount * 1440 + order * (cat.teamStartIntervalMin || 0);
+      let order = 0;
+      if (overnightDepartureMode !== "together") {
+        const group = overnightDepartureMode === "perRace"
+          ? (overnightOrdersGlobal.get(`${stop.cpId}::${team._overnightCount - 1}`) || [])
+          : (overnightOrders.get(`${cat.id}::${routeIdx}`) || []);
+        const rank = Math.max(0, group.indexOf(teamIdx));
+        order = reverseOvernightOrder ? Math.max(0, (group.length - 1) - rank) : rank;
+      }
+      const gap = overnightDepartureMode === "together" ? 0 : overnightDepartureIntervalMin;
+      const dayDepart = cat.startMinutes2 + team._overnightCount * 1440 + order * gap;
       actualDepartMin = Math.max(dayDepart, finishMin);
       nextArriveMin = actualDepartMin + nextWalk;
     } else {

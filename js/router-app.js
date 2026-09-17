@@ -11,7 +11,9 @@ import * as kartta from "./views/kartta.js";
 import * as sarjat from "./views/sarjat.js";
 import * as ennuste from "./views/ennuste.js";
 import * as asetukset from "./views/asetukset.js";
+import * as aloitus from "./views/aloitus.js";
 
+register("aloitus", aloitus.render);
 register("tehtava", tehtavat.render);
 register("rasti", rastit.render);
 register("rata", radat.render);
@@ -19,6 +21,10 @@ register("kartta", kartta.render);
 register("sarja", sarjat.render);
 register("ennuste", ennuste.render);
 register("asetukset", asetukset.render);
+
+document.getElementById("home-btn")?.addEventListener("click", () => {
+  window.location.hash = "#/aloitus";
+});
 
 initDemoChrome();
 initNavMenu();
