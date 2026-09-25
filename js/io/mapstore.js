@@ -11,6 +11,11 @@ const DB_VERSION = 1;
 const STORE = "mapFiles";
 const KEY = "current";
 
+// Bumped whenever the stored file changes, so a view caching the decoded
+// raster can tell a replaced file apart from one with the same name.
+let revision = 0;
+export function mapRevision() { return revision; }
+
 function openDb() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -44,6 +49,7 @@ export async function putMapFile(file) {
       blob: file
     };
     await tx(db, "readwrite", store => store.put(record, KEY));
+    revision++;
     return record;
   } finally {
     db.close();
@@ -64,6 +70,7 @@ export async function clearMapFile() {
   const db = await openDb();
   try {
     await tx(db, "readwrite", store => store.delete(KEY));
+    revision++;
   } finally {
     db.close();
   }

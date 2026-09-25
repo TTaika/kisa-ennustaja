@@ -1,5 +1,6 @@
-import { getState, update, resetToDefaults, exportFileName, exportJson, importJson } from "../state.js";
-import { exportXlsxArray, importXlsxArrayBuffer } from "../io/xlsx.js";
+import { getState, update, resetToDefaults, exportFileName, exportJson } from "../state.js";
+import { exportXlsxArray } from "../io/xlsx.js";
+import { exportProjectBlob, projectFileName, importFile } from "../io/project.js";
 import { teamFitness } from "../model/simulate.js";
 import { rerender } from "../router.js";
 import { escapeAttr } from "../util/format.js";
@@ -210,10 +211,13 @@ function dataCardHtml() {
   bindCollapse(card, "asetukset-data");
   card.innerHTML = `
     <summary><h2>Tiedot</h2></summary>
-    <p class="text-muted" style="margin-top:0;">Tallennustiedosto nimetään kilpailun nimen ja päivämäärän mukaan.</p>
+    <p class="text-muted" style="margin-top:0;">Tallennustiedosto nimetään kilpailun nimen ja päivämäärän mukaan.
+      <strong>Tallenna koko projekti</strong> sisältää myös kartan ja logon, joten sen voi lähettää suoraan toiselle käyttäjälle.
+      Pelkkä JSON jättää karttatiedoston pois.</p>
     <p><strong>Tiedostonimi:</strong> <code>${escapeAttr(filename)}</code></p>
     <div class="toolbar">
-      <button class="btn-save-json">Tallenna JSON</button>
+      <button class="btn-save-project">Tallenna koko projekti</button>
+      <button class="secondary btn-save-json">Tallenna JSON</button>
       <button class="secondary btn-export-xlsx">Vie XLSX</button>
       <button class="secondary btn-import">Tuo tiedosto</button>
       <input class="file-import" type="file" accept=".json,.xlsx" style="display:none;">
@@ -221,6 +225,17 @@ function dataCardHtml() {
     </div>
   `;
 
+  card.querySelector(".btn-save-project").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      downloadBlob(await exportProjectBlob(), projectFileName());
+    } catch (err) {
+      alert(err.message || String(err));
+    } finally {
+      btn.disabled = false;
+    }
+  });
   card.querySelector(".btn-save-json").addEventListener("click", () => {
     downloadBlob(new Blob([exportJson()], { type: "application/json" }), exportFileName());
   });
@@ -239,11 +254,7 @@ function dataCardHtml() {
     const file = fileInput.files?.[0];
     if (!file) return;
     try {
-      if (/\.json$/i.test(file.name)) {
-        importJson(await file.text());
-      } else {
-        importXlsxArrayBuffer(await file.arrayBuffer());
-      }
+      await importFile(file);
       rerender();
     } catch (err) {
       alert(err.message || String(err));

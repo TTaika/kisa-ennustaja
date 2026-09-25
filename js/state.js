@@ -304,7 +304,12 @@ export function exportJson() {
 }
 
 export function importJson(text) {
-  const parsed = JSON.parse(text);
+  importState(JSON.parse(text));
+}
+
+// Validates and loads an already-parsed state object — shared by importJson()
+// and the full-project bundle import (io/project.js).
+export function importState(parsed) {
   if (parsed.schemaVersion !== SCHEMA_VERSION) {
     throw new Error(`Tuntematon schemaVersion (odotettiin ${SCHEMA_VERSION})`);
   }

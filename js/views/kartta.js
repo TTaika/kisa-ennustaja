@@ -9,7 +9,7 @@
 import { getState, update, genId } from "../state.js";
 import { rerender } from "../router.js";
 import { escapeText, escapeAttr } from "../util/format.js";
-import { getMapFile, putMapFile, clearMapFile } from "../io/mapstore.js";
+import { getMapFile, putMapFile, clearMapFile, mapRevision } from "../io/mapstore.js";
 import { renderMapFileToCanvas, canvasEventToRefPx } from "../util/mapRender.js";
 import { fitSimilarity, pxToLl, llToPx, calibrationQuality } from "../model/georef.js";
 import { haversineM, parseCoords, decodePolyline } from "../model/route.js";
@@ -255,7 +255,7 @@ async function ensureRaster(mapWrap) {
   // Keyed off state (synchronously known) rather than the IndexedDB record,
   // so a cache hit — the common case, since drawMap() runs on every map
   // interaction — never has to await an IndexedDB read at all.
-  const key = `${state.map.fileName}|${state.map.pageIndex}|${state.map.renderDpi}`;
+  const key = `${mapRevision()}|${state.map.fileName}|${state.map.pageIndex}|${state.map.renderDpi}`;
   if (rasterCache.key === key) return rasterCache;
   const record = await getMapFile();
   if (!record) { rasterCache.key = null; return null; }

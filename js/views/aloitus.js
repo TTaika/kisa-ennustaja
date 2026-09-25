@@ -2,8 +2,8 @@
 // router.js's START_ROUTE) and reachable afterwards via the topbar's home
 // button. Single-project app: "latest race" is just whatever is already in
 // state.js's localStorage-backed state, so "continue" is a plain navigate.
-import { createEmptyRace, importJson } from "../state.js";
-import { importXlsxArrayBuffer } from "../io/xlsx.js";
+import { createEmptyRace } from "../state.js";
+import { importFile } from "../io/project.js";
 import { rerender } from "../router.js";
 
 export function render(root) {
@@ -34,11 +34,7 @@ function startCardHtml() {
     const file = fileInput.files?.[0];
     if (!file) return;
     try {
-      if (/\.json$/i.test(file.name)) {
-        importJson(await file.text());
-      } else {
-        importXlsxArrayBuffer(await file.arrayBuffer());
-      }
+      await importFile(file);
       window.location.hash = "#/rasti";
     } catch (err) {
       alert(err.message || String(err));

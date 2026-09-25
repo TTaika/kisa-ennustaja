@@ -4,6 +4,7 @@ import { escapeAttr, escapeText, minsToHHMM, hhmmToMins, seedAttr } from "../uti
 import { parseCoords, formatCoords } from "../model/route.js";
 import { openModal } from "../util/modal.js";
 import { initSearchPicker } from "../util/searchPicker.js";
+import { findTask } from "../util/lookup.js";
 
 export function render(root) {
   const state = getState();
@@ -25,7 +26,7 @@ export function render(root) {
         </tr>
       </thead>
       <tbody>
-        ${state.controlPoints.map(rowHtml).join("")}
+        ${state.controlPoints.map(cp => rowHtml(state, cp)).join("")}
       </tbody>
     </table>
   `;
@@ -37,9 +38,9 @@ export function render(root) {
   state.controlPoints.forEach((cp, i) => wireRow(rows[i], cp.id));
 }
 
-function rowHtml(cp) {
-  const taskCount = (cp.taskIds || []).length;
-  const taskSummary = taskCount ? `${taskCount} tehtävää` : "Ei tehtäviä";
+function rowHtml(state, cp) {
+  const taskNames = (cp.taskIds || []).map(id => findTask(state, id)?.name).filter(Boolean);
+  const taskSummary = taskNames.length ? taskNames.join(", ") : "Ei tehtäviä";
   const closing = cp.closingTimeMin != null ? minsToHHMM(cp.closingTimeMin) : "—";
   const coordsLabel = formatCoords({ lat: cp.lat, lng: cp.lng }) || "—";
   return `

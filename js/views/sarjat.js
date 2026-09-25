@@ -6,6 +6,10 @@ import { bindCollapse } from "../util/collapseMemory.js";
 import { openModal } from "../util/modal.js";
 import { initDropdownMenu } from "../util/dropdownMenu.js";
 
+// The per-team DNS/DNF grid is hidden for now. withdrawnTeamIndices is still
+// stored and still honoured by the simulation — flip this to bring it back.
+const SHOW_TEAM_GRID = false;
+
 export function render(root) {
   const state = getState();
   const toolbar = document.createElement("div");
@@ -47,6 +51,7 @@ function catCard(cat) {
         ${cat.teamCount} joukkuetta, lähtöväli ${cat.teamStartIntervalMin} min
       </span>
     </div>
+    ${SHOW_TEAM_GRID ? `
     <h3 class="subhead">Joukkueet</h3>
     <p class="text-muted" style="margin: 0 0 0.25rem; font-size: 0.85rem;">
       Klikkaa joukkuetta merkitäksesi sen ei-starttaavaksi / keskeyttäneeksi (DNS/DNF).
@@ -54,7 +59,7 @@ function catCard(cat) {
     </p>
     <div class="team-grid">
       ${Array.from({ length: cat.teamCount }, (_, i) => i + 1).map(n => teamChipHtml(cat, n)).join("")}
-    </div>
+    </div>` : ""}
     ${course ? `<p class="text-muted" style="font-size:0.8rem; margin: 0.75rem 0 0;">Radan pohja-häröilyaika: ${course.haroilyBaselineMin} min · ${course.stops.length} pysähdystä</p>` : ""}
   `;
 
